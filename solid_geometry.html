@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>立体几何图形展示</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="controls">
+        <label for="shape-select">选择图形:</label>
+        <select id="shape-select">
+            <option value="cube">正方体</option>
+            <option value="cylinder">圆柱体</option>
+            <option value="cone">圆锥体</option>
+            <option value="sphere">球体</option>
+        </select>
+        <br>
+        <label for="width">长/半径:</label>
+        <input type="number" id="width" value="1">
+        <br>
+        <label for="height">高:</label>
+        <input type="number" id="height" value="1">
+        <br>
+        <label for="depth">宽:</label>
+        <input type="number" id="depth" value="1">
+        <br>
+        <label for="color">颜色:</label>
+        <input type="color" id="color" value="#ff0000">
+        <br>
+        <label for="opacity">透明度:</label>
+        <input type="range" id="opacity" min="0" max="1" step="0.1" value="1">
+        <br>
+        <button id="update-button">更新图形</button>
+    </div>
+    <div id="scene-container"></div>
+    <script>
+        // 创建场景、相机和渲染器
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('scene-container').appendChild(renderer.domElement);
+
+        // 设置相机位置
+        camera.position.z = 5;
+
+        // 创建几何体和材质
+        let geometry;
+        let material;
+        let mesh;
+
+        function createShape() {
+            const shape = document.getElementById('shape-select').value;
+            const width = parseFloat(document.getElementById('width').value);
+            const height = parseFloat(document.getElementById('height').value);
+            const depth = parseFloat(document.getElementById('depth').value);
+            const color = document.getElementById('color').value;
+            const opacity = parseFloat(document.getElementById('opacity').value);
+
+            if (mesh) {
+                scene.remove(mesh);
+            }
+
+            switch (shape) {
+                case 'cube':
+                    geometry = new THREE.BoxGeometry(width, height, depth);
+                    break;
+                case 'cylinder':
+                    geometry = new THREE.CylinderGeometry(width, width, height, 32);
+                    break;
+                case 'cone':
+                    geometry = new THREE.ConeGeometry(width, height, 32);
+                    break;
+                case 'sphere':
+                    geometry = new THREE.SphereGeometry(width, 32, 32);
+                    break;
+            }
+
+            material = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity });
+            mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+        }
+
+        // 初始创建图形
+        createShape();
+
+        // 更新按钮事件监听
+        document.getElementById('update-button').addEventListener('click', createShape);
+
+        // 渲染循环
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (mesh) {
+                mesh.rotation.x += 0.01;
+                mesh.rotation.y += 0.01;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+
+</html>
+    
