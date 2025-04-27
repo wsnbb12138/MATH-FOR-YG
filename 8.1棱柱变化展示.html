@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>棱柱、棱锥和棱台的联系</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #scene-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+        #controls {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 350px;
+            height: 100vh;
+            padding: 20px;
+            background-color: #f4f4f4;
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            resize: horizontal;
+            min-width: 300px;
+            max-width: 80vw;
+        }
+        .control-group {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .control-group h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+            cursor: move;
+            user-select: none;
+        }
+        label {
+            margin-bottom: 5px;
+            display: block;
+            font-weight: bold;
+        }
+        input[type="range"],
+        input[type="color"],
+        input[type="checkbox"],
+        select {
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        .original-marker {
+            position: relative;
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background-color: red;
+            border-radius: 50%;
+            margin-left: 5px;
+            top: -2px;
+        }
+        .vertex-controls {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e9e9e9;
+            border-radius: 5px;
+        }
+        .vertex-slider-group {
+            margin-bottom: 8px;
+        }
+        .vertex-slider-group label {
+            display: inline-block;
+            width: 80px;
+        }
+        .wireframe-controls {
+            background-color: #e0f7fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .resize-handle {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 10px;
+            height: 100%;
+            cursor: col-resize;
+            z-index: 10;
+        }
+        .color-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .color-control {
+            flex: 1;
+            min-width: 120px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="scene-container"></div>
+    <div id="controls">
+        <div class="resize-handle"></div>
+        
+        <div class="control-group">
+            <h3>基本控制</h3>
+            <label for="size-slider">整体大小比例</label>
+            <input type="range" id="size-slider" min="0.1" max="2" step="0.01" value="1">
+            <span class="original-marker" style="left: calc(50% - 5px);"></span>
+
+            <label for="height-slider">棱柱高度</label>
+            <input type="range" id="height-slider" min="0.5" max="3" step="0.1" value="2">
+            <span class="original-marker"></span>
+
+            <label for="sides-select">底面边数</label>
+            <select id="sides-select">
+                <option value="3">三角形</option>
+                <option value="4" selected>四边形</option>
+                <option value="5">五边形</option>
+                <option value="6">六边形</option>
+            </select>
+            <span class="original-marker"></span>
+        </div>
+
+        <div class="control-group">
+            <h3>棱柱变形控制</h3>
+            <label for="scale-slider">伸缩比例 (棱台)</label>
+            <input type="range" id="scale-slider" min="0" max="1" step="0.01" value="1">
+            <span class="original-marker" style="left: calc(100% - 10px);"></span>
+
+            <label for="tilt-slider">斜棱柱倾斜度</label>
+            <input type="range" id="tilt-slider" min="-1" max="1" step="0.01" value="0">
+            <span class="original-marker" style="left: calc(50% - 5px);"></span>
+
+            <label>
+                <input type="checkbox" id="irregular-toggle"> 启用非正多边形底面
+            </label>
+            <span class="original-marker"></span>
+
+            <div id="vertex-controls" class="vertex-controls">
+                <!-- 顶点滑块将动态添加在这里 -->
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>显示模式</h3>
+            <label>
+                <input type="checkbox" id="wireframe-checkbox"> <strong>仅显示线条模式</strong>
+            </label>
+            <span class="original-marker"></span>
+
+            <label>
+                <input type="checkbox" id="transparent-checkbox"> 透视几何体
+            </label>
+            <span class="original-marker"></span>
+
+            <div id="wireframe-controls" class="wireframe-controls">
+                <label for="wireframe-color">线条颜色</label>
+                <input type="color" id="wireframe-color" value="#000000">
+                <span class="original-marker"></span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>颜色控制</h3>
+            <div class="color-controls">
+                <div class="color-control">
+                    <label for="base-color">上下底面颜色</label>
+                    <input type="color" id="base-color" value="#00ff00">
+                    <span class="original-marker"></span>
+                </div>
+                <div class="color-control">
+                    <label for="side-color">侧面颜色</label>
+                    <input type="color" id="side-color" value="#00ff00">
+                    <span class="original-marker"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // 初始化Three.js场景
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f0f0);
+        
+        // 设置相机
+        const camera = new THREE.PerspectiveCamera(75, (window.innerWidth - 350) / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+        
+        // 创建渲染器
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth - 350, window.innerHeight);
+        document.getElementById('scene-container').appendChild(renderer.domElement);
+        
+        // 添加控制器
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        
+        // 添加光源
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+
+        // 全局变量
+        let prism, solidLines, dashedLines;
+        let originalVertices = [];
+        let sideMaterial, baseMaterial;
+        let currentTilt = 0, currentScale = 1, currentSides = 4;
+        let currentHeight = 2, currentSize = 1;
+        let irregularMode = false;
+        let vertexOffsets = [];
+
+        // 创建棱柱
+        function createPrism(sides) {
+            currentSides = sides;
+            vertexOffsets = new Array(sides * 2).fill(0);
+            
+            // 清除旧对象
+            [prism, solidLines, dashedLines].forEach(obj => obj && scene.remove(obj));
+
+            // 创建几何体
+            const geometry = createGeometry(sides, currentHeight);
+            
+            // 创建材质
+            sideMaterial = new THREE.MeshPhongMaterial({ 
+                color: new THREE.Color(document.getElementById('side-color').value),
+                side: THREE.DoubleSide,
+                transparent: document.getElementById('transparent-checkbox').checked,
+                opacity: document.getElementById('transparent-checkbox').checked ? 0.5 : 1
+            });
+            
+            baseMaterial = new THREE.MeshPhongMaterial({ 
+                color: new THREE.Color(document.getElementById('base-color').value),
+                transparent: document.getElementById('transparent-checkbox').checked,
+                opacity: document.getElementById('transparent-checkbox').checked ? 0.5 : 1
+            });
+            
+            prism = new THREE.Mesh(geometry, [sideMaterial, baseMaterial]);
+            prism.scale.set(currentSize, currentSize, currentSize);
+            scene.add(prism);
+
+            // 存储原始顶点
+            storeOriginalVertices();
+
+            // 更新线框和顶点控制
+            updateWireframe();
+            updateVertexControls();
+        }
+
+        // 创建几何体
+        function createGeometry(sides, height) {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [], indices = [];
+            const radius = 0.5;
+
+            // 生成顶点（底面和顶面顶点一一对应）
+            for (let i = 0; i < sides; i++) {
+                const angle = (i / sides) * Math.PI * 2;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                vertices.push(x, -height/2, z); // 底面顶点
+                vertices.push(x, height/2, z);  // 顶面顶点
+            }
+
+            // 侧面四边形（两个三角形组成一个四边形面）
+            for (let i = 0; i < sides; i++) {
+                const next = (i + 1) % sides;
+                indices.push(i*2, next*2, i*2+1);   // 第一个三角形
+                indices.push(next*2, next*2+1, i*2+1); // 第二个三角形
+            }
+
+            // 添加底面和顶面中心点
+            vertices.push(0, -height/2, 0); // 底面中心
+            vertices.push(0, height/2, 0);  // 顶面中心
+            const centerBottom = sides * 2;
+            const centerTop = sides * 2 + 1;
+
+            // 底面三角形
+            for (let i = 0; i < sides; i++) {
+                const next = (i + 1) % sides;
+                indices.push(i*2, next*2, centerBottom);
+            }
+
+            // 顶面三角形
+            for (let i = 0; i < sides; i++) {
+                const next = (i + 1) % sides;
+                indices.push(i*2+1, centerTop, next*2+1);
+            }
+
+            geometry.setIndex(indices);
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.computeVertexNormals();
+            
+            // 设置材质组
+            geometry.groups = [
+                { start: 0, count: sides * 6, materialIndex: 0 }, // 侧面
+                { start: sides * 6, count: sides * 6, materialIndex: 1 } // 底面和顶面
+            ];
+            
+            return geometry;
+        }
+
+        // 存储原始顶点位置
+        function storeOriginalVertices() {
+            originalVertices = [];
+            const positions = prism.geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                originalVertices.push(new THREE.Vector3(
+                    positions[i],
+                    positions[i+1],
+                    positions[i+2]
+                ));
+            }
+        }
+
+        // 更新线框（自动显示背面虚线）
+        function updateWireframe() {
+            // 移除旧线框
+            if(solidLines) scene.remove(solidLines);
+            if(dashedLines) scene.remove(dashedLines);
+
+            // 创建新的线框几何体
+            const wireframeGeometry = createEdgeGeometry(prism.geometry);
+            const color = new THREE.Color(document.getElementById('wireframe-color').value);
+            const transparent = document.getElementById('transparent-checkbox').checked;
+            const opacity = transparent ? 0.5 : 1;
+
+            // 创建实线材质（正面可见部分）
+            solidLines = new THREE.LineSegments(
+                wireframeGeometry,
+                new THREE.LineBasicMaterial({
+                    color: color,
+                    transparent: transparent,
+                    opacity: opacity
+                })
+            );
+            solidLines.scale.copy(prism.scale);
+            scene.add(solidLines);
+
+            // 自动创建虚线材质（背面不可见部分）
+            dashedLines = new THREE.LineSegments(
+                wireframeGeometry,
+                new THREE.LineDashedMaterial({
+                    color: color,
+                    dashSize: 0.15,
+                    gapSize: 0.1,
+                    transparent: transparent,
+                    opacity: opacity
+                })
+            );
+            dashedLines.computeLineDistances();
+            dashedLines.scale.copy(prism.scale);
+            dashedLines.renderOrder = 1; // 确保虚线在实线之后渲染
+            scene.add(dashedLines);
+
+            updateVisibility();
+        }
+
+        // 创建边几何体（仅包含棱边）
+        function createEdgeGeometry(geometry) {
+            const edgeGeometry = new THREE.BufferGeometry();
+            const edges = [];
+            const sides = currentSides;
+            
+            // 底面边
+            for(let i = 0; i < sides; i++) {
+                const next = (i + 1) % sides;
+                edges.push(i*2, next*2);
+            }
+            
+            // 顶面边
+            for(let i = 0; i < sides; i++) {
+                const next = (i + 1) % sides;
+                edges.push(i*2+1, next*2+1);
+            }
+            
+            // 侧棱
+            for(let i = 0; i < sides; i++) {
+                edges.push(i*2, i*2+1);
+            }
+            
+            edgeGeometry.setIndex(edges);
+            edgeGeometry.setAttribute('position', geometry.attributes.position);
+            return edgeGeometry;
+        }
+
+        // 更新顶点控制面板
+        function updateVertexControls() {
+            const container = document.getElementById('vertex-controls');
+            container.innerHTML = '';
+            
+            if(!irregularMode) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            
+            for(let i = 0; i < currentSides; i++) {
+                const group = document.createElement('div');
+                group.className = 'vertex-slider-group';
+                group.innerHTML = `
+                    <label>顶点 ${i+1}: </label>
+                    <span>X </span><input type="range" class="vertex-slider" 
+                        data-index="${i}" data-axis="x" min="-0.5" max="0.5" step="0.01" value="${vertexOffsets[i*2] || 0}">
+                    <span>Z </span><input type="range" class="vertex-slider"
+                        data-index="${i}" data-axis="z" min="-0.5" max="0.5" step="0.01" value="${vertexOffsets[i*2+1] || 0}">
+                `;
+                container.appendChild(group);
+            }
+            
+            // 添加事件监听
+            document.querySelectorAll('.vertex-slider').forEach(slider => {
+                slider.addEventListener('input', function(e) {
+                    const index = parseInt(this.dataset.index);
+                    const axis = this.dataset.axis;
+                    const value = parseFloat(this.value);
+                    vertexOffsets[index * 2 + (axis === 'z' ? 1 : 0)] = value;
+                    updateGeometry();
+                });
+            });
+        }
+
+        // 更新几何体
+        function updateGeometry() {
+            const positions = prism.geometry.attributes.position.array;
+            
+            // 重置所有顶点到原始位置
+            for(let i = 0; i < originalVertices.length; i++) {
+                positions[i*3] = originalVertices[i].x;
+                positions[i*3+1] = originalVertices[i].y;
+                positions[i*3+2] = originalVertices[i].z;
+            }
+            
+            // 应用顶点偏移（非正多边形模式）
+            if(irregularMode) {
+                for(let i = 0; i < currentSides; i++) {
+                    // 底面顶点偏移
+                    positions[i*6] += vertexOffsets[i*2];     // X偏移
+                    positions[i*6+2] += vertexOffsets[i*2+1]; // Z偏移
+                    
+                    // 顶面顶点偏移（保持与底面相同的偏移比例）
+                    positions[i*6+3] += vertexOffsets[i*2] * currentScale;
+                    positions[i*6+5] += vertexOffsets[i*2+1] * currentScale;
+                }
+            }
+            
+            // 应用棱台变形
+            for(let i = 0; i < positions.length; i += 3) {
+                if(positions[i+1] > 0) { // 只处理顶面顶点
+                    positions[i] = positions[i] * currentScale + currentTilt;
+                    positions[i+2] = positions[i+2] * currentScale;
+                }
+            }
+            
+            // 更新几何体
+            prism.geometry.attributes.position.needsUpdate = true;
+            prism.geometry.computeVertexNormals();
+            updateWireframe();
+        }
+
+        // 更新可见性
+        function updateVisibility() {
+            const showWireframe = document.getElementById('wireframe-checkbox').checked;
+            prism.visible = !showWireframe;
+            if(solidLines) solidLines.visible = showWireframe;
+            if(dashedLines) dashedLines.visible = showWireframe;
+            
+            // 高亮显示线条控制区域
+            document.getElementById('wireframe-controls').style.backgroundColor = 
+                showWireframe ? '#b2ebf2' : '#e0f7fa';
+        }
+
+        // 设置透明度
+        function setTransparency(transparent) {
+            const opacity = transparent ? 0.5 : 1;
+            [sideMaterial, baseMaterial].forEach(mat => {
+                mat.transparent = transparent;
+                mat.opacity = opacity;
+            });
+            
+            if(solidLines) solidLines.material.transparent = transparent;
+            if(dashedLines) dashedLines.material.transparent = transparent;
+            
+            if(solidLines) solidLines.material.opacity = opacity;
+            if(dashedLines) dashedLines.material.opacity = opacity;
+        }
+
+        // 初始化
+        createPrism(4);
+
+        // 事件监听
+        document.getElementById('size-slider').addEventListener('input', function(e) {
+            currentSize = parseFloat(e.target.value);
+            prism.scale.set(currentSize, currentSize, currentSize);
+            if(solidLines) solidLines.scale.set(currentSize, currentSize, currentSize);
+            if(dashedLines) dashedLines.scale.set(currentSize, currentSize, currentSize);
+        });
+
+        document.getElementById('height-slider').addEventListener('input', function(e) {
+            currentHeight = parseFloat(e.target.value);
+            createPrism(currentSides);
+        });
+
+        document.getElementById('scale-slider').addEventListener('input', function(e) {
+            currentScale = parseFloat(e.target.value);
+            updateGeometry();
+        });
+
+        document.getElementById('tilt-slider').addEventListener('input', function(e) {
+            currentTilt = parseFloat(e.target.value);
+            updateGeometry();
+        });
+
+        document.getElementById('sides-select').addEventListener('change', function(e) {
+            createPrism(parseInt(e.target.value));
+        });
+
+        document.getElementById('irregular-toggle').addEventListener('change', function(e) {
+            irregularMode = e.target.checked;
+            if(!irregularMode) {
+                // 重置所有顶点偏移
+                vertexOffsets = new Array(currentSides * 2).fill(0);
+                document.querySelectorAll('.vertex-slider').forEach(slider => {
+                    slider.value = 0;
+                });
+            }
+            updateVertexControls();
+            updateGeometry();
+        });
+
+        document.getElementById('transparent-checkbox').addEventListener('change', function(e) {
+            setTransparency(e.target.checked);
+        });
+
+        document.getElementById('wireframe-checkbox').addEventListener('change', function(e) {
+            updateVisibility();
+        });
+
+        document.getElementById('wireframe-color').addEventListener('input', function(e) {
+            const color = new THREE.Color(e.target.value);
+            if(solidLines) solidLines.material.color = color;
+            if(dashedLines) dashedLines.material.color = color;
+        });
+
+        document.getElementById('base-color').addEventListener('input', function(e) {
+            baseMaterial.color.set(e.target.value);
+        });
+
+        document.getElementById('side-color').addEventListener('input', function(e) {
+            sideMaterial.color.set(e.target.value);
+        });
+
+        // 控制面板拖动
+        const resizeHandle = document.querySelector('.resize-handle');
+        let isResizing = false;
+        resizeHandle.addEventListener('mousedown', function() {
+            isResizing = true;
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', function() {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleResize);
+            });
+        });
+
+        function handleResize(e) {
+            if(!isResizing) return;
+            const newWidth = Math.max(300, Math.min(window.innerWidth - e.clientX, window.innerWidth * 0.8));
+            document.getElementById('controls').style.width = `${newWidth}px`;
+            updateSceneSize();
+        }
+
+        // 更新场景大小
+        function updateSceneSize() {
+            const controlsWidth = document.getElementById('controls').offsetWidth;
+            camera.aspect = (window.innerWidth - controlsWidth) / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth - controlsWidth, window.innerHeight);
+        }
+
+        // 窗口大小调整
+        window.addEventListener('resize', updateSceneSize);
+
+        // 渲染循环
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
